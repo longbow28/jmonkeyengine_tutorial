@@ -4,6 +4,7 @@ import com.jme3.anim.AnimComposer;
 import com.jme3.anim.tween.Tween;
 import com.jme3.anim.tween.Tweens;
 import com.jme3.anim.tween.action.Action;
+import com.jme3.anim.tween.action.BlendAction;
 import com.jme3.anim.tween.action.BlendSpace;
 import com.jme3.anim.tween.action.LinearBlendSpace;
 import com.jme3.app.SimpleApplication;
@@ -34,23 +35,46 @@ public class HelloAnimation extends SimpleApplication {
         player.setLocalScale(0.5f);
         rootNode.attachChild(player);
         control = player.getControl(AnimComposer.class);
+
+        // 当切换为0秒动画时，会立即切换，无过渡
+        // 将stand的时间设置为0.5秒,这样在stand和walk之间切换时会有一个过渡
+        Action stand = control.action("stand");
+        stand.setLength(0.5f);
+
+        // 设置混合动画
+        // 设置一个线性混合空间，范围是0到0.5，0表示全部第一个动画，0.5表示全部第二个动画
+        BlendSpace quickBlend = new LinearBlendSpace(0f, 0.5f);
+        // 设置混合动画的权重，0.1表示第一个动画80%，第二个动画20%
+        quickBlend.setValue(0.2f);
+        // 由于“Dodge”下半身无动作，因此和“Walk”混合后，下半身的步幅会变小
+        // 由于“Walk”时长比“Dodge”长，因此“Dodge”会慢放拉长至“Walk”时长
+        BlendAction smallWalk = control.actionBlended("smallWalk", quickBlend, "Dodge", "Walk");
+
+        Action dodge = control.action("Dodge");
+        // 设置dodge的长度为2秒
+        // 若动作被用于合成序列动画，则不要修改Length，会造成一些意料之外的问题
+        // 设置播放时长，若短于原时长则截取播放，若长于原时长则暂停在最后一帧
+        // dodge.setLength(2);
+        // 设置dodge的速度为0.1倍，通过setCurrentAction("Dodge")有效，负数会倒放
+        // 在拼接为序列动画时，该属性无效
+        dodge.setSpeed(0.1);
+
+        // 创建一个慢放动作，播放时长为2秒
+        Tween slowDodge = Tweens.stretch(2, dodge);
+        // 创建一个反向动作
+        Tween slowRevertDodge = Tweens.invert(slowDodge);
+        // 创建一个回调方法动作
+        Tween doneTween = Tweens.callMethod(this, "onAdvanceDone");
+
+        // 创建一个序列动作,按顺序播放dodge, slowRevertDodge, slowDodge, smallWalk, doneTween
+        advance = control.actionSequence("advance", dodge, slowRevertDodge, slowDodge, smallWalk, doneTween);
+
+        
+        
+        
+        
         control.setCurrentAction("stand");
 
-        /*
-         * Compose an animation action named "halt"
-         * that transitions from "Walk" to "stand" in half a second.
-         */
-        BlendSpace quickBlend = new LinearBlendSpace(0f, 10f);
-        Action halt = control.actionBlended("halt", quickBlend, "stand", "push");
-        halt.setLength(10f);
-
-        /*
-         * Compose an animation action named "advance"
-         * that walks for one cycle, then halts, then invokes onAdvanceDone().
-         */
-        Action walk = control.action("Walk");
-        Tween doneTween = Tweens.callMethod(this, "onAdvanceDone");
-        advance = control.actionSequence("advance", walk, halt, doneTween);
     }
 
     /**
@@ -63,12 +87,8 @@ public class HelloAnimation extends SimpleApplication {
         control.setCurrentAction("stand");
     }
 
-    /**
-     * Map the spacebar to the "Walk" input action, and add a listener to initiate
-     * the "advance" animation action each time it's pressed.
-     */
     private void initKeys() {
-        inputManager.addMapping("Walk", new KeyTrigger(KeyInput.KEY_SPACE));
+        inputManager.addMapping("start", new KeyTrigger(KeyInput.KEY_SPACE));
 
         ActionListener handler = new ActionListener() {
             @Override
@@ -78,6 +98,6 @@ public class HelloAnimation extends SimpleApplication {
                 }
             }
         };
-        inputManager.addListener(handler, "Walk");
+        inputManager.addListener(handler, "start");
     }
 }
