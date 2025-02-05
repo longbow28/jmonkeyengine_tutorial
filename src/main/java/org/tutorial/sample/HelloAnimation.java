@@ -37,7 +37,7 @@ public class HelloAnimation extends SimpleApplication {
         control = player.getControl(AnimComposer.class);
 
         // 当切换为0秒动画时，会立即切换，无过渡
-        // 将stand的时间设置为0.5秒,这样在stand和walk之间切换时会有一个过渡
+        // 将stand的时间设置为0.5秒,这样在任意动画切换为stand时会有一个过渡
         Action stand = control.action("stand");
         stand.setLength(0.5f);
 
